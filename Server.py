@@ -12,7 +12,7 @@ import os
 
 # ----------------------- Configuration Values -----------------------
 Program_Name = "TARA-Xilog-Server"                  # Program name for identification and logging.
-Program_Version = "1.1"                             # Program version used for file naming and logging.
+Program_Version = "1.2"                             # Program version used for file naming and logging.
 # ---------------------------------------------------------------------
 
 # Default configuration dictionary for the application
@@ -327,12 +327,19 @@ if __name__ == "__main__":
         logger.error("Invalid SleepType in configuration: {}", config.get('SleepType'))
         exit(1)
 
-    get_sensor_data(config)  # Initial call to fetch data immediately
-
+    try:
+        get_sensor_data(config)  # Initial call to fetch data immediately
+    except Exception as e:
+        logger.error("Error during initial data fetch: {}", str(e))
     schedule.every(1).minutes.do(keep_alive)  # Keep-alive task to run every minute
-
     # Main loop to run scheduled tasks
     while True:
-        schedule.run_pending()
-        time.sleep(10)
+        try:
+            schedule.run_pending()  # Run any pending scheduled tasks
+            time.sleep(10)          # Sleep to avoid busy-waiting
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt received. Stopping consumption...")  # Log Ctrl+C
+            break
+        except Exception as e:
+            logger.error("An error occurred: {}", str(e))  # Log any unexpected errors
 
