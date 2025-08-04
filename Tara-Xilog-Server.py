@@ -12,7 +12,7 @@ import os
 
 # ----------------------- Configuration Values -----------------------
 Program_Name = "TARA-Xilog-Server"                  # Program name for identification and logging.
-Program_Version = "1.2"                             # Program version used for file naming and logging.
+Program_Version = "1.3"                             # Program version used for file naming and logging.
 # ---------------------------------------------------------------------
 
 # Default configuration dictionary for the application
@@ -22,19 +22,21 @@ default_config = {
         "mysql_port": 3306,                  # Default MySQL port
         "mysql_user": "",                    # MySQL username
         "mysql_Pass": "",                    # MySQL password
-        "mysql_database": "",                # MySQL database name
+        "mysql_database": ""                 # MySQL database name
     },
     "URL": "",                               # Default URL for HTTP GET requests.
     "Sensor": [
         {
-            "Token": "",
-            "Sensor_ID": "",
-            "Name": "Default Sensor",
-            "Get_Type": "day",
-            "Get_Value": 10
+            "Token": "",                     # Token for HTTP GET requests.
+            "Sensor_ID": "",                 # Sensor ID for HTTP GET requests.
+            "Sensor_Name": "Default Sensor", # Default name for the sensor.
+            "Get_Type": "days",              # Type of data to fetch: "days", "hours", "minutes"
+            "Get_Value": 8                   # Number of days/hours/minutes to fetch data for.
         }
     ],                                       # Default Sensor ID for HTTP GET requests.
     "TimeSleep": 8,                          # Default sleep time in seconds between HTTP GET requests.
+    "AtTime": "00:00",                       # Default time to run the task if SleepType is "days".
+    # This is used to schedule the task at a specific time of day.
     "SleepType": "seconds",                  # Default sleep type for scheduling.
     # Options: "seconds", "minutes", "hours", "days"
     "log_Level": "DEBUG",
@@ -112,17 +114,17 @@ def fetch_sensor(sensor, config):
     """
     logger.info("Processing Sensor ID: {}", sensor['Sensor_ID'])
     # Determine the start datetime based on Get_Type and Get_Value
-    if 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'day':
+    if 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'days':
         # If Get_Type is 'day', fetch data for the last 'Get_Value' days, but not more than 8 days
         get_value = sensor.get('Get_Value', 1)
         if get_value > 8:
             logger.warning("Get_Value {} is greater than 8, limiting to 8 days.", get_value)
             get_value = 8
         StartDatetime = (datetime.now() - timedelta(days=get_value)).strftime("%Y-%m-%d %H:%M")
-    elif 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'hour':
+    elif 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'hours':
         # If Get_Type is 'hour', fetch data for the last 'Get_Value' hours
         StartDatetime = (datetime.now() - timedelta(hours=sensor.get('Get_Value', 1))).strftime("%Y-%m-%d %H:%M")
-    elif 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'minute':
+    elif 'Get_Type' in sensor and sensor['Get_Type'].lower() == 'minutes':
         # If Get_Type is 'minute', fetch data for the last 'Get_Value' minutes
         StartDatetime = (datetime.now() - timedelta(minutes=sensor.get('Get_Value', 1))).strftime("%Y-%m-%d %H:%M")
     else:
@@ -322,7 +324,7 @@ if __name__ == "__main__":
     elif config.get('SleepType').upper() == "HOURS":
         schedule.every(config.get('TimeSleep', 10)).hours.do(get_sensor_data, config)
     elif config.get('SleepType').upper() == "DAYS":
-        schedule.every(config.get('TimeSleep', 10)).days.do(get_sensor_data, config)
+        schedule.every(config.get('TimeSleep', 10)).days.at(config.get('AtTime','00:00')).do(get_sensor_data, config)
     else:
         logger.error("Invalid SleepType in configuration: {}", config.get('SleepType'))
         exit(1)
